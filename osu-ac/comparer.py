@@ -76,6 +76,33 @@ class Comparer:
 
         return ((player1 in WHITELIST and player2 in WHITELIST) or (player1 == player2))
 
+    def divide(self, criterion):
+        """
+        Splits this comparer in to multiple comparers that are grouped
+        by the criterion.
+        
+        Warning:
+            This implementation uses no thresholds and just applies
+            some cuts at set intervals so will likely still falsely split replays.
+        
+        Args:
+            Func criterion: A function that takes a Replay and returns the dividing statistic.
+            
+            
+        Returns:
+            3 Comparers that are grouped by the criterion.
+        """
+        
+        replays = list(set(self.replays1 + self.replays2))
+        
+        scored = [(criterion(replay), replay) for replay in replays]
+        scored.sort(lambda replay: replay[0])
+        
+        replays = [replay[0] for replay in scored]
+        n = len(replays)
+        
+        return replays[:n//2], replays[n//4:-n//4], replays[-n//2:]
+
     def _print_result(self, result, replay1, replay2):
         """
         Prints a human readable version of the result if the average distance
