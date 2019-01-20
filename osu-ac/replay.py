@@ -74,8 +74,8 @@ class Replay:
         # convert to bytes so the lzma can be deocded with osrparse
         replay_data_bytes = base64.b64decode(replay_data_string)
         parsed_replay = osrparse.parse_replay(replay_data_bytes, pure_lzma=True)
-        replay_data = parsed_replay.play_data
-        return Replay(replay_data, user_id)
+
+        return Replay.from_parsed(parsed_replay)
 
     @staticmethod
     def from_path(path):
@@ -90,11 +90,23 @@ class Replay:
         """
 
         parsed_replay = osrparse.parse_replay_file(path)
-        check_replay_data = parsed_replay.play_data
-        player_name = parsed_replay.player_name
+        
+        return Replay.from_parsed(parsed_replay)
+    
+    @staticmethod
+    def from_parsed(parsed):
+        """
+        Creates a Replay instance from a osrparse replay instance.
 
-        return Replay(check_replay_data, player_name)
+        Args:
+            osrparse.replay.Replay parsed: The osrparse replay instance.
 
+        Returns:
+            The Replay instance created from the instance.
+        """
+        
+        return Replay(parsed.play_data, parsed.player_name)
+        
     @staticmethod
     def interpolate(data1, data2, interpolation=Interpolation.linear, unflip=False):
         """
