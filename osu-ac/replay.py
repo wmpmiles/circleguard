@@ -54,6 +54,57 @@ class Replay:
         self.play_data = replay_data
 
     @staticmethod
+    def from_map(map_id, user_id):
+        """
+        Creates a Replay instance from a replay by the given user on the given map.
+
+        Args:
+            String map_id: The map_id to download the replay from
+            String user_id: The user id to download the replay of. 
+                            Also used as the username of the Replay.
+
+        Returns:
+            The Replay instance created with the given information.
+        """
+
+        replay_data_string = Downloader.replay_data(map_id, user_id)
+        # convert to bytes so the lzma can be deocded with osrparse
+        replay_data_bytes = base64.b64decode(replay_data_string)
+        parsed_replay = osrparse.parse_replay(replay_data_bytes, pure_lzma=True)
+
+        return Replay.from_parsed(parsed_replay)
+
+    @staticmethod
+    def from_path(path):
+        """
+        Creates a Replay instance from the data contained by file at the given path.
+
+        Args:
+            [String or Path] path: The absolute path to the replay file.
+
+        Returns:
+            The Replay instance created from the given path.
+        """
+
+        parsed_replay = osrparse.parse_replay_file(path)
+        
+        return Replay.from_parsed(parsed_replay)
+    
+    @staticmethod
+    def from_parsed(parsed):
+        """
+        Creates a Replay instance from a osrparse replay instance.
+
+        Args:
+            osrparse.replay.Replay parsed: The osrparse replay instance.
+
+        Returns:
+            The Replay instance created from the instance.
+        """
+        
+        return Replay(parsed.play_data, parsed.player_name)
+        
+    @staticmethod
     def interpolate(data1, data2, interpolation=Interpolation.linear, unflip=False):
         """
         Interpolates the longer of the datas to match the timestamps of the shorter.
