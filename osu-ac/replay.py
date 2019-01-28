@@ -40,7 +40,7 @@ class Replay:
         String player_name: The player who set the replay. Often given as a player id.
     """
 
-    def __init__(self, replay_data, player_name, n300, n100, n50, nmiss):
+    def __init__(self, replay_data, player_name):
         """
         Initializes a Replay instance.
 
