@@ -9,7 +9,7 @@ PATH_REPLAYS_STUB = PATH_ROOT / "replays"
 
 # get all replays in path to check against
 PATH_REPLAYS = [join(PATH_REPLAYS_STUB, f) for f in os.listdir(PATH_REPLAYS_STUB) if isfile(join(PATH_REPLAYS_STUB, f)) and f != ".DS_Store"]
-
+PATH_REPLAYS.sort()
 API_BASE = "https://osu.ppy.sh/api/"
 API_REPLAY = API_BASE + "get_replay?k=" + API_KEY + "&m=0&b={}&u={}"
 API_SCORES_ALL = API_BASE + "get_scores?k=" + API_KEY + "&m=0&b={}&limit={}"
