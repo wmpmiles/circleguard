@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include "comparer.h"
 #include "LzmaDec.h"
 
@@ -107,7 +108,7 @@ void print_lzma_error(int e, ELzmaStatus status) {
 void *SzAlloc(ISzAllocPtr p, size_t size) { p = p; return malloc(size); }
 void SzFree(ISzAllocPtr p, void *address) { p = p; free(address); }
 
-size_t lzmaDecode(uint8_t *s, size_t l, uint8_t **d) {
+size_t lzmaDecode(uint8_t *s, size_t l, char **d) {
 	ISzAlloc alloc = { SzAlloc, SzFree };
 
 	const Byte *propData = s + PROP_OFFSET;
@@ -133,6 +134,130 @@ size_t lzmaDecode(uint8_t *s, size_t l, uint8_t **d) {
 
 	print_lzma_error(e, status);
 
-	*d = dest;
+	*d = (char *)dest;
 	return destLen;
+}
+
+static size_t countPoints(char *s, size_t l) {
+	size_t c = 0;
+	for (size_t i = 0; i < l; i++) {
+		if (s[i] == ',') c++;
+	}
+	return c;
+}
+
+int cmp(const void *a, const void *b) {
+	if (((point *)a)->time <  ((point *)b)->time) return -1;
+	if (((point *)a)->time == ((point *)b)->time) return  0;
+	return 1;
+}
+
+size_t parseReplay(char *s, size_t l, point **pArrP) {
+	size_t pCount = countPoints(s, l);
+	point *pArr = (point *)malloc(pCount * sizeof(point));
+
+	uint64_t time = 0;
+
+	for (size_t i = 0; i < pCount; i++) {
+		time += atoll(s);
+		pArr[i].time = time;
+
+		while (*(s++) != '|');
+		pArr[i].x = atof(s);
+
+		while (*(s++) != '|');
+		pArr[i].y = atof(s);
+
+		while (*(s++) != ',');
+	}
+
+	qsort((void *)pArr, pCount, sizeof(point), cmp);
+	*pArrP = pArr;
+	return pCount;
+}
+
+static inline void inc(point *f, point *b, point *s, size_t *i) {
+	*b = *f;
+	*f = s[++(*i)];
+}
+
+static inline void interp(point *f, point *b, uint64_t t, point *p) {
+	double r;
+	if (f->time == b->time) {
+		r = 0;
+	}
+	else {
+		r = ((double)(t - b->time)) / (f->time - b->time);
+	}
+	p->time = t;
+	p->x = b->x + (f->x - b->x) * r;
+	p->y = b->y + (f->y - b->y) * r;
+}
+
+static inline double dist(point *a, point *b) {
+	double delX = a->x - b->x;
+	double delY = a->y - b->y;
+	return sqrt(delX * delX + delY * delY);
+}
+
+static inline void compInterp(point *b, point *f, point *i, double *sum, size_t *n) {
+	point p;
+	interp(f, b, i->time, &p);
+
+	*sum += dist(i, &p);
+	(*n)++;
+}
+
+double compare(point *s1, size_t l1, point *s2, size_t l2) {
+	if (l1 < 2 || l2 < 2) return 0;
+
+	point f1, b1, f2, b2;
+	b1 = s1[0];
+	f1 = s1[1];
+	b2 = s2[0];
+	f2 = s2[1];
+
+	double sum = 0.0;
+	size_t n = 0;
+	size_t i1, i2;
+	i1 = i2 = 1;
+
+	while (i1 < l1 && i2 < l2) {
+		if (b1.time < b2.time) {
+			if (f1.time < b2.time) {
+				inc(&f1, &b1, s1, &i1);
+			}
+			else {
+				if (f1.time < f2.time) {
+					compInterp(&b1, &f1, &b2, &sum, &n);
+					compInterp(&b2, &f2, &f1, &sum, &n);
+					inc(&f1, &b1, s1, &i1);
+				}
+				else {
+					compInterp(&b1, &f1, &b2, &sum, &n);
+					compInterp(&b1, &f1, &f2, &sum, &n);
+					inc(&f2, &b2, s2, &i2);
+				}
+			}
+		}
+		else {
+			if (b1.time > f2.time) {
+				inc(&f2, &b2, s2, &i2);
+			}
+			else {
+				if (f1.time > f2.time) {
+					compInterp(&b2, &f2, &b1, &sum, &n);
+					compInterp(&b1, &f1, &f2, &sum, &n);
+					inc(&f2, &b2, s2, &i2);
+				}
+				else {
+					compInterp(&b2, &f2, &b1, &sum, &n);
+					compInterp(&b2, &f2, &f1, &sum, &n);
+					inc(&f1, &b1, s1, &i1);
+				}
+			}
+		}
+	}
+
+	return sum / n;
 }
